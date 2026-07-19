@@ -149,10 +149,13 @@ def collect_jstage(cfg, since):
                 },
             )
             root = ET.fromstring(resp.content)
-            # APIのステータスを検査(0=正常, WARN_xxx=警告付きで結果あり)
+            # APIのステータスを検査
+            # (0=正常, WARN_xxx=警告付きで結果あり, ERR_001=該当0件)
             for elem in root.iter():
                 if strip_ns(elem.tag) == "status":
                     status = (elem.text or "").strip()
+                    if status == "ERR_001":  # 検索結果なし
+                        break
                     if status and status != "0" and not status.startswith("WARN"):
                         raise RuntimeError(f"J-STAGE APIエラー: {status}")
                     break
