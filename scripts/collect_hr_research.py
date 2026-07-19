@@ -107,8 +107,10 @@ def collect_openalex(cfg, since):
                     "date": work.get("publication_date") or "",
                     "venue": src,
                     "authors": ", ".join(a for a in authors if a),
-                    "summary": truncate(
-                        reconstruct_abstract(work.get("abstract_inverted_index"))),
+                    "summary": "",
+                    "summary_source": truncate(
+                        reconstruct_abstract(work.get("abstract_inverted_index")),
+                        1200),
                 })
         except Exception as exc:  # noqa: BLE001 - 1クエリの失敗で全体を止めない
             errors.append(f"OpenAlex ({query}): {exc}")
@@ -222,14 +224,21 @@ def parse_feed_date(text):
     return None
 
 
+def strip_html(text):
+    """HTMLタグを除去してプレーンテキストにする。"""
+    import html as html_mod
+    text = re.sub(r"<[^>]+>", " ", text or "")
+    return re.sub(r"\s+", " ", html_mod.unescape(text)).strip()
+
+
 def parse_feed_entries(content):
-    """フィードXMLから (title, link, published) のリストを返す。"""
+    """フィードXMLから (title, link, published, description) のリストを返す。"""
     root = ET.fromstring(content)
     entries = []
     for elem in root.iter():
         if strip_ns(elem.tag) not in ("item", "entry"):
             continue
-        title, link, published = "", "", None
+        title, link, published, desc = "", "", None, ""
         for child in elem:
             tag = strip_ns(child.tag)
             text = (child.text or "").strip()
@@ -239,7 +248,9 @@ def parse_feed_entries(content):
                 link = link or child.get("href") or text
             elif tag in ("pubDate", "date", "updated", "published", "issued"):
                 published = published or parse_feed_date(text)
-        entries.append((title, link, published))
+            elif tag in ("description", "summary", "content"):
+                desc = desc or strip_html(text)
+        entries.append((title, link, published, desc))
     return entries
 
 
@@ -253,7 +264,7 @@ def collect_feeds(cfg, since):
         try:
             resp = http_get(feed_cfg["url"], params=feed_cfg.get("params"))
             found = []
-            for title, link, published in parse_feed_entries(resp.content):
+            for title, link, published, desc in parse_feed_entries(resp.content):
                 if not title:
                     continue
                 if keywords and not any(k in title.lower() for k in keywords):
@@ -261,6 +272,9 @@ def collect_feeds(cfg, since):
                 # 日付が取れて期間外なら除外。日付が無い場合は seen.json に任せる
                 if published and published < since:
                     continue
+                # 説明文がタイトルの繰り返しでなければ要約の元テキストにする
+                source_text = desc if desc and desc not in title \
+                    and title not in desc else ""
                 found.append({
                     "id": link or f"{name}:{title}",
                     "title": title,
@@ -269,12 +283,99 @@ def collect_feeds(cfg, since):
                     "venue": name,
                     "authors": "",
                     "summary": "",
+                    "summary_source": truncate(source_text, 1200),
                 })
             grouped[name] = {"category": category, "items": found}
         except Exception as exc:  # noqa: BLE001
             errors.append(f"{name}: {exc}")
             grouped[name] = {"category": category, "items": None}  # 取得失敗
     return grouped, errors
+
+
+# ----------------------------------------------------------------------
+# 要約: J-STAGE抄録の取得 + GitHub Models(無料AI)による日本語要約
+# ----------------------------------------------------------------------
+
+def fetch_jstage_abstract(url):
+    """J-STAGE論文ページのmetaタグから抄録テキストを取得する。"""
+    try:
+        html = http_get(url).content.decode("utf-8", errors="replace")
+        for tag_str in re.findall(r"<meta\b[^>]*>", html):
+            attrs = dict(re.findall(r'([\w:-]+)\s*=\s*"([^"]*)"', tag_str))
+            key = attrs.get("name") or attrs.get("property") or ""
+            if key in ("description", "og:description",
+                       "citation_abstract", "twitter:description"):
+                text = strip_html(attrs.get("content", ""))
+                if len(text) >= 60:  # サイト共通の短い説明文は抄録ではない
+                    return truncate(text, 1200)
+    except Exception:  # noqa: BLE001 - 抄録が取れなくても収集は続行
+        pass
+    return ""
+
+
+def enrich_jstage_abstracts(items):
+    for item in items:
+        if item.get("url") and not item.get("summary_source"):
+            item["summary_source"] = fetch_jstage_abstract(item["url"])
+
+
+def summarize_items(all_items, cfg):
+    """summary_source を持つアイテムに日本語1〜2文の要約(summary)を付ける。
+
+    GitHub Actions の GITHUB_TOKEN で使える GitHub Models(無料)を利用。
+    トークンが無い/失敗した場合は原文の抜粋にフォールバックする。
+    """
+    import os
+    sm = cfg.get("summarize") or {}
+    targets = [it for it in all_items
+               if it.get("summary_source") and not it.get("summary")]
+    if not targets:
+        return []
+    errors = []
+    token = os.environ.get("GITHUB_TOKEN", "")
+    if sm.get("enabled", True) and token:
+        chunk_size = int(sm.get("chunk_size", 15))
+        model = sm.get("model", "openai/gpt-4o-mini")
+        for start in range(0, len(targets), chunk_size):
+            chunk = targets[start:start + chunk_size]
+            payload = [{"i": str(i), "text": truncate(it["summary_source"], 700)}
+                       for i, it in enumerate(chunk)]
+            prompt = (
+                "以下のJSON配列の各textは、論文の抄録またはニュースの本文抜粋です。"
+                "それぞれを日本語1〜2文(100文字程度まで)で要約してください。"
+                "英語など外国語の場合も必ず日本語で要約すること。"
+                "出力は、キーが各項目の\"i\"の値・値が要約文であるJSONオブジェクト"
+                "のみを返してください。\n\n"
+                + json.dumps(payload, ensure_ascii=False)
+            )
+            try:
+                resp = requests.post(
+                    "https://models.github.ai/inference/chat/completions",
+                    headers={"Authorization": f"Bearer {token}",
+                             "Content-Type": "application/json",
+                             "User-Agent": USER_AGENT},
+                    json={"model": model, "temperature": 0.2, "messages": [
+                        {"role": "system",
+                         "content": "あなたは学術論文とニュースの要約担当です。"},
+                        {"role": "user", "content": prompt}]},
+                    timeout=120,
+                )
+                resp.raise_for_status()
+                content = resp.json()["choices"][0]["message"]["content"]
+                content = re.sub(r"^```(json)?\s*|\s*```$", "",
+                                 content.strip(), flags=re.M).strip()
+                result = json.loads(content)
+                for i, it in enumerate(chunk):
+                    summary = result.get(str(i))
+                    if summary:
+                        it["summary"] = truncate(str(summary), 300)
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"AI要約(第{start // chunk_size + 1}バッチ): {exc}")
+    # フォールバック: 要約が付かなかったものは原文の冒頭を載せる
+    for it in targets:
+        if not it["summary"]:
+            it["summary"] = truncate(it["summary_source"], 200)
+    return errors
 
 
 # ----------------------------------------------------------------------
@@ -321,7 +422,7 @@ def render_item(item):
     if item.get("url"):
         lines.append(f"- <{item['url']}>")
     if item.get("summary"):
-        lines.append(f"- 概要: {item['summary']}")
+        lines.append(f"- 要約: {item['summary']}")
     return "\n".join(lines)
 
 
@@ -341,6 +442,8 @@ def render_feed_sections(lines, feed_groups, category):
                 link = f" — <{item['url']}>" if item["url"] else ""
                 d = f"({item['date']}) " if item["date"] else ""
                 lines.append(f"- {d}{item['title']}{link}")
+                if item.get("summary"):
+                    lines.append(f"  - 要約: {item['summary']}")
         else:
             lines.append("- 新着はありませんでした。")
         lines.append("")
@@ -435,6 +538,14 @@ def main():
     for group in feed_groups.values():
         if group["items"] is not None:
             group["items"] = filter_new(group["items"], seen, today)
+
+    # 新着として残ったものだけ抄録取得とAI要約を行う
+    enrich_jstage_abstracts(jstage_items)
+    all_items = openalex_items + jstage_items
+    for group in feed_groups.values():
+        if group["items"]:
+            all_items += group["items"]
+    all_errors += summarize_items(all_items, cfg)
 
     report = render_report(today, since, openalex_items, jstage_items,
                            feed_groups, all_errors)

@@ -9,6 +9,7 @@ on:
 permissions:
   contents: write
   issues: write
+  models: read  # GitHub Models(AI要約)の利用に必要
 
 jobs:
   collect:
@@ -27,6 +28,8 @@ jobs:
 
       - name: 研究情報を収集してレポート生成
         id: collect
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # AI要約(GitHub Models)用
         run: python scripts/collect_hr_research.py
 
       - name: レポートをコミット

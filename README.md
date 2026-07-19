@@ -139,8 +139,17 @@ python3 scripts/make_qr.py https://<ユーザー名>.github.io/<リポジトリ�
 1. 平日 7:00 JST に GitHub Actions が起動(手動実行も可能)
 2. 各ソースから直近数日の新着を取得し、キーワードでフィルタ
 3. 過去に収集済みのものは `data/seen.json` で自動的に重複排除
-4. `reports/YYYY-MM-DD.md` にレポートをコミット
-5. 同じ内容を **Issue として投稿** → GitHubの通知(メール)で受け取れる
+4. 論文の抄録・記事の本文抜粋から **日本語1〜2文の要約を自動生成**
+   (GitHub Actions内蔵の GitHub Models を利用。無料・追加設定不要。
+   失敗時は原文の抜粋を表示)
+5. `reports/YYYY-MM-DD.md` にレポートをコミット
+6. 同じ内容を **Issue として投稿** → GitHubの通知(メール)で受け取れる
+
+## レポートの見方
+
+- **Issues タブ**: 毎朝「📊 人事研究デイリーレポート」というIssueが作成されます。
+  リポジトリを Watch(All Activity)しておけばメールでも届きます。
+- **reports/ フォルダ**: 過去のレポートがすべて日付ごとに保存されています。
 
 > 📧 メールで受け取りたい場合は、このリポジトリを Watch(All Activity)に設定してください。Issueが作成されるたびに通知が届きます。
 
