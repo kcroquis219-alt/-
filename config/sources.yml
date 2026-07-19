@@ -13,16 +13,21 @@ window_days: 3
 # 世界最大級のオープン学術データベース。査読付き論文のみ取得。
 # ---------------------------------------------------------------
 openalex:
-  max_per_query: 15
-  # タイトル・抄録に対する検索クエリ(英語)
+  max_per_query: 10
+  # タイトル・抄録に対する検索フレーズ(英語)。
+  # OR検索は無関係な論文が混ざりやすいため、1クエリ=1フレーズにする。
+  # 英語論文に限定(language:en)。
   queries:
     - '"human resource management"'
-    - '"people analytics" OR "HR analytics"'
-    - '"employee turnover" OR "employee retention"'
-    - '"talent management" OR "talent acquisition"'
-    - '"performance appraisal" OR "performance management" employees'
-    - '"employee engagement" OR "job satisfaction"'
-    - '"remote work" OR "hybrid work" productivity'
+    - '"people analytics"'
+    - '"employee turnover"'
+    - '"employee retention"'
+    - '"talent management"'
+    - '"performance appraisal"'
+    - '"employee engagement"'
+    - '"job satisfaction"'
+    - '"remote work"'
+    - '"hybrid work"'
 
 # ---------------------------------------------------------------
 # 国内の学術論文: J-STAGE (https://www.jstage.jst.go.jp)
@@ -56,14 +61,13 @@ feeds:
     url: https://www.mhlw.go.jp/stf/news.rdf
     keywords: [雇用, 賃金, 労働, 人材, 職業, 働き方, 統計, 調査]
 
-  - name: JILPT 労働政策研究・研修機構
-    category: public
-    url: https://www.jil.go.jp/rss/index.xml
-    keywords: []
+  # 注: JILPT(労働政策研究・研修機構)は公式サイトにRSS配信がないため
+  # 収集元に含められません。JILPTの新着はメールマガジン(メルマガ登録)で
+  # 受け取るか、厚労省RSS経由の関連情報でカバーしてください。
 
   - name: RIETI 経済産業研究所
     category: public
-    url: https://www.rieti.go.jp/jp/rss/whatsnew.xml
+    url: https://www.rieti.go.jp/jp/rss/index.rdf
     keywords: [雇用, 賃金, 労働, 人材, 人事, 働き方]
 
   - name: NBER Working Papers(全米経済研究所)

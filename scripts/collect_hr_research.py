@@ -73,6 +73,7 @@ def reconstruct_abstract(inverted_index):
 
 def collect_openalex(cfg, since):
     items, errors = [], []
+    seen_titles = set()  # 同一論文が複数ソースに索引されるためタイトルでも排除
     oa = cfg.get("openalex") or {}
     for query in oa.get("queries", []):
         try:
@@ -82,15 +83,19 @@ def collect_openalex(cfg, since):
                     "filter": (
                         f"title_and_abstract.search:{query},"
                         f"from_publication_date:{since.isoformat()},"
-                        "type:article"
+                        "type:article,language:en"
                     ),
                     "sort": "publication_date:desc",
-                    "per-page": oa.get("max_per_query", 15),
+                    "per-page": oa.get("max_per_query", 10),
                     "select": "id,title,publication_date,primary_location,"
                               "doi,abstract_inverted_index,authorships",
                 },
             )
             for work in resp.json().get("results", []):
+                title_key = re.sub(r"\s+", " ", (work.get("title") or "")).strip().lower()
+                if not title_key or title_key in seen_titles:
+                    continue
+                seen_titles.add(title_key)
                 loc = work.get("primary_location") or {}
                 src = (loc.get("source") or {}).get("display_name") or ""
                 authors = [a.get("author", {}).get("display_name", "")
@@ -141,10 +146,16 @@ def collect_jstage(cfg, since):
                     "article": query,
                     "pubyearfrom": since.year,
                     "count": js.get("max_per_query", 10),
-                    "sortflg": 2,  # 発行日の新しい順
                 },
             )
             root = ET.fromstring(resp.content)
+            # APIのステータスを検査(0=正常, WARN_xxx=警告付きで結果あり)
+            for elem in root.iter():
+                if strip_ns(elem.tag) == "status":
+                    status = (elem.text or "").strip()
+                    if status and status != "0" and not status.startswith("WARN"):
+                        raise RuntimeError(f"J-STAGE APIエラー: {status}")
+                    break
             for entry in root.iter():
                 if strip_ns(entry.tag) != "entry":
                     continue
