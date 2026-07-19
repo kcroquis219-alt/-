@@ -1,0 +1,66 @@
+# 収集対象の設定ファイル
+# ここを編集するだけで検索キーワードや収集元を変更できます。
+#
+# 方針: 収集元は「査読論文データベース」と「公的機関」に限定し、
+#       個人・企業の根拠が曖昧なコラム類は構造的に排除する。
+
+# 収集対象期間(日数)。週次実行の取りこぼし防止のため8日に設定
+# (重複は seen.json で自動排除されるので重なっても問題なし)
+window_days: 8
+
+# ---------------------------------------------------------------
+# 海外の学術論文: OpenAlex (https://openalex.org)
+# 世界最大級のオープン学術データベース。査読付き論文のみ取得。
+# ---------------------------------------------------------------
+openalex:
+  max_per_query: 15
+  # タイトル・抄録に対する検索クエリ(英語)
+  queries:
+    - '"human resource management"'
+    - '"people analytics" OR "HR analytics"'
+    - '"employee turnover" OR "employee retention"'
+    - '"talent management" OR "talent acquisition"'
+    - '"performance appraisal" OR "performance management" employees'
+    - '"employee engagement" OR "job satisfaction"'
+    - '"remote work" OR "hybrid work" productivity'
+
+# ---------------------------------------------------------------
+# 国内の学術論文: J-STAGE (https://www.jstage.jst.go.jp)
+# 科学技術振興機構(JST)が運営する国内最大の学術論文プラットフォーム。
+# ---------------------------------------------------------------
+jstage:
+  max_per_query: 10
+  # 論文タイトルに対する検索キーワード(日本語)
+  queries:
+    - 人事管理
+    - 人的資源管理
+    - 人材マネジメント
+    - 組織行動
+    - 採用
+    - 賃金
+    - 働き方
+
+# ---------------------------------------------------------------
+# 公的機関・研究機関の新着情報(RSSフィード)
+# keywords が空の場合は全件対象(労働専門機関など)。
+# keywords がある場合はタイトルにいずれかを含むものだけ収集。
+# URLが変更された場合はレポートに「取得失敗」と表示されるので、
+# ここを修正してください。
+# ---------------------------------------------------------------
+feeds:
+  - name: 厚生労働省 新着情報
+    url: https://www.mhlw.go.jp/stf/news.rdf
+    keywords: [雇用, 賃金, 労働, 人材, 職業, 働き方, 統計, 調査]
+
+  - name: JILPT 労働政策研究・研修機構
+    url: https://www.jil.go.jp/rss/index.xml
+    keywords: []
+
+  - name: RIETI 経済産業研究所
+    url: https://www.rieti.go.jp/jp/rss/whatsnew.xml
+    keywords: [雇用, 賃金, 労働, 人材, 人事, 働き方]
+
+  - name: NBER Working Papers(全米経済研究所)
+    url: https://back.nber.org/rss/new.xml
+    keywords: [labor, employment, wage, worker, hiring, human capital,
+               personnel, workplace, job, retention]
