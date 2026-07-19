@@ -1,0 +1,27 @@
+name: debug-probe(調査用・後で削除)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 業界誌候補のRSS URLを調査
+        run: |
+          set +e
+          probe() {
+            echo "--- $1 => HTTP $(curl -sSL -o /tmp/x -w '%{http_code}' --max-time 20 "$1")"
+            head -c 300 /tmp/x; echo ""
+          }
+          probe "https://hrnote.jp/feed/"
+          probe "https://hrzine.jp/rss/index.xml"
+          echo "=== hrzine homepage rss links ==="
+          curl -sSL --max-time 20 https://hrzine.jp/ | grep -oiE '(href|src)="[^"]*(rss|\.rdf|feed|\.xml)[^"]*"' | sort -u | head -10
+          echo "=== jinjibu(日本の人事部) homepage rss links ==="
+          curl -sSL --max-time 20 https://jinjibu.jp/ | grep -oiE '(href|src)="[^"]*(rss|\.rdf|feed|\.xml)[^"]*"' | sort -u | head -10
+          echo "=== works-i(リクルートワークス研究所) homepage rss links ==="
+          curl -sSL --max-time 20 https://www.works-i.com/ | grep -oiE '(href|src)="[^"]*(rss|\.rdf|feed|\.xml)[^"]*"' | sort -u | head -10
+          echo "=== rosei(労務行政) homepage rss links ==="
+          curl -sSL --max-time 20 https://www.rosei.jp/ | grep -oiE '(href|src)="[^"]*(rss|\.rdf|feed|\.xml)[^"]*"' | sort -u | head -10
+          true
