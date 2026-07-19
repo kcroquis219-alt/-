@@ -1,9 +1,9 @@
-name: 週次 人事研究レポート
+name: 平日 人事研究レポート
 
 on:
   schedule:
-    # 毎週月曜 9:00 JST (= 日曜 24:00 UTC = 月曜 0:00 UTC)
-    - cron: "0 0 * * 1"
+    # 平日 7:00 JST = 前日 22:00 UTC(日〜木曜UTC = 月〜金曜JST)
+    - cron: "0 22 * * 0-4"
   workflow_dispatch: {}  # 手動実行(Actionsタブの Run workflow ボタン)も可能
 
 permissions:
@@ -37,7 +37,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "変更なし。コミットをスキップします。"
           else
-            git commit -m "週次人事研究レポート $(date +%Y-%m-%d)"
+            git commit -m "人事研究デイリーレポート $(date -d '+9 hours' +%Y-%m-%d)"
             git push
           fi
 
@@ -47,7 +47,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPORT_PATH: ${{ steps.collect.outputs.report_path }}
         run: |
-          TITLE="📊 人事研究ウィークリーレポート $(date +%Y-%m-%d)"
+          TITLE="📊 人事研究デイリーレポート $(date -d '+9 hours' +%Y-%m-%d)"
           # Issue本文の上限(65536字)に収まるよう安全側で切り詰める
           head -c 60000 "$REPORT_PATH" > /tmp/issue_body.md
           if [ "$(wc -c < "$REPORT_PATH")" -gt 60000 ]; then
@@ -55,5 +55,5 @@ jobs:
             echo "…(全文はリポジトリ内の \`$REPORT_PATH\` を参照)" >> /tmp/issue_body.md
           fi
           gh issue create --title "$TITLE" --body-file /tmp/issue_body.md \
-            --label "weekly-report" || \
+            --label "daily-report" || \
           gh issue create --title "$TITLE" --body-file /tmp/issue_body.md

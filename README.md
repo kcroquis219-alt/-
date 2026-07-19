@@ -1,10 +1,10 @@
 # 人事研究 自動収集システム
 
-**毎週月曜 9:00(日本時間)** に、人事(HR)に関する最新の研究・公的調査データを国内外から自動収集し、Markdownレポートを生成する仕組みです。GitHub Actions 上で完結するため、サーバーの用意や費用は不要です。
+**平日 7:00(日本時間)** に、人事(HR)に関する最新の研究・公的調査データ・新聞報道を国内外から自動収集し、Markdownレポートを生成する仕組みです。GitHub Actions 上で完結するため、サーバーの用意や費用は不要です。
 
 ## 収集元(信頼できるソースに限定)
 
-個人や企業の根拠が曖昧なコラムを排除するため、収集元を **査読論文データベースと公的機関** に限定しています。
+個人や企業の根拠が曖昧なコラムを排除するため、収集元を **査読論文データベース・公的機関・新聞報道** に限定しています。
 
 | 区分 | ソース | 内容 |
 |---|---|---|
@@ -14,11 +14,13 @@
 | 公的調査 | JILPT(労働政策研究・研修機構) | 労働政策の調査研究成果 |
 | 公的調査 | RIETI(経済産業研究所) | 雇用・人材関連のディスカッションペーパー等 |
 | 海外研究 | NBER(全米経済研究所) | 労働経済学のワーキングペーパー |
+| 新聞報道 | Google News検索(全国紙・通信社等を横断) | 人事・雇用・賃金関連の記事 |
+| 新聞報道 | NHKニュース(経済) | 雇用・労働関連の報道 |
 
 ## 動作の流れ
 
-1. 毎週月曜 9:00 JST に GitHub Actions が起動(手動実行も可能)
-2. 各ソースから直近1週間の新着を取得し、キーワードでフィルタ
+1. 平日 7:00 JST に GitHub Actions が起動(手動実行も可能)
+2. 各ソースから直近数日の新着を取得し、キーワードでフィルタ
 3. 過去に収集済みのものは `data/seen.json` で自動的に重複排除
 4. `reports/YYYY-MM-DD.md` にレポートをコミット
 5. 同じ内容を **Issue として投稿** → GitHubの通知(メール)で受け取れる
@@ -27,7 +29,7 @@
 
 ## 手動で試す
 
-GitHub の **Actions タブ → 「週次 人事研究レポート」→ Run workflow** で今すぐ実行できます。
+GitHub の **Actions タブ → 「平日 人事研究レポート」→ Run workflow** で今すぐ実行できます。
 
 ローカルで動かす場合:
 
@@ -40,10 +42,10 @@ python scripts/collect_hr_research.py
 
 検索キーワードや収集元はすべて [`config/sources.yml`](config/sources.yml) で管理しています。
 
-- **検索キーワードの変更**: `openalex.queries`(英語)/ `jstage.queries`(日本語)を編集
-- **収集元の追加**: 公的機関のRSSフィードを `feeds:` に追記(`keywords` を指定するとタイトルで絞り込み)
+- **検索キーワードの変更**: `openalex.queries`(英語)/ `jstage.queries`(日本語)/ 新聞は `feeds:` の Google News `params.q` を編集
+- **収集元の追加**: RSSフィードを `feeds:` に追記(`category: public` か `news` を指定。`keywords` を指定するとタイトルで絞り込み)
 - **収集期間の変更**: `window_days` を編集
-- **実行タイミングの変更**: [`.github/workflows/weekly-hr-research.yml`](.github/workflows/weekly-hr-research.yml) の `cron` を編集(UTC表記。JSTから9時間引く)
+- **実行タイミングの変更**: [`.github/workflows/daily-hr-research.yml`](.github/workflows/daily-hr-research.yml) の `cron` を編集(UTC表記。JSTから9時間引く)
 
 ## トラブルシューティング
 

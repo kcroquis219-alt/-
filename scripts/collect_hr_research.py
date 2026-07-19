@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """人事(HR)関連の最新研究・公的調査データを収集し、Markdownレポートを生成する。
 
-収集元(査読論文DB・公的機関に限定):
+収集元(査読論文DB・公的機関・新聞報道に限定):
   - OpenAlex   : 海外の査読付き学術論文
   - J-STAGE    : 国内の学術論文
-  - RSSフィード : 厚生労働省・JILPT・RIETI・NBER などの公的機関/研究機関
+  - RSSフィード : 厚生労働省・JILPT・RIETI・NBER などの公的機関/研究機関、
+                 および新聞報道(Google News検索・NHK)
 
 使い方:
   python scripts/collect_hr_research.py [--config config/sources.yml] [--out reports/]
 
 出力:
-  - reports/YYYY-MM-DD.md : 週次レポート
-  - data/seen.json        : 既出アイテムの記録(週をまたぐ重複を排除)
+  - reports/YYYY-MM-DD.md : デイリーレポート
+  - data/seen.json        : 既出アイテムの記録(日をまたぐ重複を排除)
 """
 
 import argparse
@@ -19,7 +20,9 @@ import json
 import re
 import sys
 import xml.etree.ElementTree as ET
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
+
+JST = timezone(timedelta(hours=9))
 from pathlib import Path
 
 import requests
@@ -227,12 +230,14 @@ def parse_feed_entries(content):
 
 
 def collect_feeds(cfg, since):
+    """フィードごとに {"category": ..., "items": [...] or None(失敗)} を返す。"""
     grouped, errors = {}, []
     for feed_cfg in cfg.get("feeds", []):
         name = feed_cfg.get("name", feed_cfg.get("url", "feed"))
+        category = feed_cfg.get("category", "public")
         keywords = [str(k).lower() for k in (feed_cfg.get("keywords") or [])]
         try:
-            resp = http_get(feed_cfg["url"])
+            resp = http_get(feed_cfg["url"], params=feed_cfg.get("params"))
             found = []
             for title, link, published in parse_feed_entries(resp.content):
                 if not title:
@@ -251,10 +256,10 @@ def collect_feeds(cfg, since):
                     "authors": "",
                     "summary": "",
                 })
-            grouped[name] = found
+            grouped[name] = {"category": category, "items": found}
         except Exception as exc:  # noqa: BLE001
             errors.append(f"{name}: {exc}")
-            grouped[name] = None  # 取得失敗の印
+            grouped[name] = {"category": category, "items": None}  # 取得失敗
     return grouped, errors
 
 
@@ -306,17 +311,43 @@ def render_item(item):
     return "\n".join(lines)
 
 
+def render_feed_sections(lines, feed_groups, category):
+    for name, group in feed_groups.items():
+        if group["category"] != category:
+            continue
+        items = group["items"]
+        if items is None:
+            lines.append(f"### {name}")
+            lines.append("⚠️ 取得に失敗しました(config/sources.yml のURLを確認してください)。")
+            lines.append("")
+            continue
+        lines.append(f"### {name}({len(items)}件)")
+        if items:
+            for item in items:
+                link = f" — <{item['url']}>" if item["url"] else ""
+                d = f"({item['date']}) " if item["date"] else ""
+                lines.append(f"- {d}{item['title']}{link}")
+        else:
+            lines.append("- 新着はありませんでした。")
+        lines.append("")
+
+
+def count_feed_items(feed_groups):
+    return sum(len(g["items"]) for g in feed_groups.values()
+               if g["items"] is not None)
+
+
 def render_report(today, since, openalex_items, jstage_items, feed_groups, errors):
     total = (len(openalex_items) + len(jstage_items)
-             + sum(len(v) for v in feed_groups.values() if v))
+             + count_feed_items(feed_groups))
     lines = [
-        f"# 人事研究ウィークリーレポート {today.isoformat()}",
+        f"# 人事研究デイリーレポート {today.isoformat()}",
         "",
         f"収集期間: {since.isoformat()} 〜 {today.isoformat()} / "
         f"新着 **{total} 件**",
         "",
-        "収集元は査読論文データベース(OpenAlex・J-STAGE)および"
-        "公的機関・研究機関に限定しています。",
+        "収集元は査読論文データベース(OpenAlex・J-STAGE)、"
+        "公的機関・研究機関、および新聞報道に限定しています。",
         "",
     ]
 
@@ -327,7 +358,7 @@ def render_report(today, since, openalex_items, jstage_items, feed_groups, error
             lines.append(render_item(item))
             lines.append("")
     else:
-        lines.append("今週の新着はありませんでした。")
+        lines.append("新着はありませんでした。")
         lines.append("")
 
     lines.append(f"## 🇯🇵 国内の学術論文 - J-STAGE({len(jstage_items)}件)")
@@ -337,26 +368,16 @@ def render_report(today, since, openalex_items, jstage_items, feed_groups, error
             lines.append(render_item(item))
             lines.append("")
     else:
-        lines.append("今週の新着はありませんでした。")
+        lines.append("新着はありませんでした。")
         lines.append("")
 
     lines.append("## 🏛 公的機関・研究機関の新着")
     lines.append("")
-    for name, group in feed_groups.items():
-        if group is None:
-            lines.append(f"### {name}")
-            lines.append("⚠️ 取得に失敗しました(config/sources.yml のURLを確認してください)。")
-            lines.append("")
-            continue
-        lines.append(f"### {name}({len(group)}件)")
-        if group:
-            for item in group:
-                link = f" — <{item['url']}>" if item["url"] else ""
-                d = f"({item['date']}) " if item["date"] else ""
-                lines.append(f"- {d}{item['title']}{link}")
-        else:
-            lines.append("- 今週の新着はありませんでした。")
-        lines.append("")
+    render_feed_sections(lines, feed_groups, "public")
+
+    lines.append("## 📰 新聞・報道")
+    lines.append("")
+    render_feed_sections(lines, feed_groups, "news")
 
     if errors:
         lines.append("## ⚠️ 収集エラー")
@@ -380,7 +401,7 @@ def main():
     args = parser.parse_args()
 
     cfg = yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
-    today = date.today()
+    today = datetime.now(JST).date()
     since = today - timedelta(days=int(cfg.get("window_days", 8)))
 
     seen_path = Path(args.data) / "seen.json"
@@ -397,10 +418,9 @@ def main():
 
     openalex_items = filter_new(openalex_items, seen, today)
     jstage_items = filter_new(jstage_items, seen, today)
-    feed_groups = {
-        name: (filter_new(group, seen, today) if group is not None else None)
-        for name, group in feed_groups.items()
-    }
+    for group in feed_groups.values():
+        if group["items"] is not None:
+            group["items"] = filter_new(group["items"], seen, today)
 
     report = render_report(today, since, openalex_items, jstage_items,
                            feed_groups, all_errors)
@@ -417,7 +437,7 @@ def main():
     )
 
     total = (len(openalex_items) + len(jstage_items)
-             + sum(len(v) for v in feed_groups.values() if v))
+             + count_feed_items(feed_groups))
     print(f"report={report_path}")
     print(f"new_items={total}")
 
