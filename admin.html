@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>感謝の一文字 | 管理</title>
+<style>
+  :root{
+    --bg-top:#FDFCFB;
+    --bg-btm:#EBEFF8;
+    --blue:#93A5CF;
+    --blue-soft:#C3CEE6;
+    --blue-deep:#3E4C6D;
+    --pink:#C98E9E;
+    --pink-soft:#EFDDE2;
+    --brown:#7A5F4B;
+    --card:#FFFFFF;
+    --serif:"Hiragino Mincho ProN","Yu Mincho","YuMincho","Noto Serif JP",serif;
+    --sans:"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    min-height:100vh;
+    background:linear-gradient(180deg,var(--bg-top) 0%,var(--bg-btm) 100%);
+    background-attachment:fixed;
+    color:var(--blue-deep);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+  }
+  #wrap{max-width:440px;margin:0 auto;padding:44px 22px 80px;}
+  .brand{font-family:var(--serif);text-align:center;margin-bottom:8px;
+    font-size:19px;letter-spacing:.24em;text-indent:.24em;}
+  .brand-sub{text-align:center;font-size:11px;letter-spacing:.3em;text-indent:.3em;
+    color:var(--pink);margin-bottom:30px;}
+  .panel{
+    background:var(--card);border-radius:16px;
+    border:1px solid rgba(147,165,207,.26);
+    box-shadow:0 2px 6px rgba(147,165,207,.12), 0 10px 24px rgba(147,165,207,.16);
+    padding:22px 20px;margin-bottom:16px;
+  }
+  .panel h2{font-size:12px;letter-spacing:.18em;color:var(--brown);
+    font-weight:600;margin-bottom:14px;}
+  .status-row{display:flex;align-items:center;gap:12px;}
+  .chip{
+    display:inline-block;padding:9px 20px;border-radius:999px;
+    font-size:14px;font-weight:600;letter-spacing:.12em;
+  }
+  .chip.closed{background:#F1EDE9;color:var(--brown);}
+  .chip.open{background:var(--blue);color:#fff;}
+  .chip.unknown{background:#EFEFF3;color:#9AA1B5;}
+  .status-meta{font-size:11px;color:#9AA1B5;line-height:1.7;}
+  label{display:block;font-size:11.5px;color:var(--blue-deep);margin-bottom:6px;}
+  input[type=password], input[type=text]{
+    width:100%;padding:11px 12px;font-size:14px;
+    border:1px solid var(--blue-soft);border-radius:8px;
+    font-family:var(--sans);color:var(--blue-deep);background:#FDFDFE;
+  }
+  input:focus{outline:2px solid var(--blue);outline-offset:-1px;}
+  .note{font-size:11px;color:#9AA1B5;line-height:1.8;margin-top:10px;}
+  .note a{color:var(--blue);}
+  .btn-main{
+    display:block;width:100%;margin-top:6px;
+    padding:17px 0;border:none;border-radius:12px;cursor:pointer;
+    background:var(--pink);color:#fff;
+    font-family:var(--serif);font-size:16.5px;letter-spacing:.3em;text-indent:.3em;
+    box-shadow:0 4px 14px rgba(201,142,158,.35);
+    transition:opacity .2s ease, transform .1s ease;
+  }
+  .btn-main:active{transform:scale(.985);}
+  .btn-main:disabled{opacity:.45;cursor:default;}
+  .btn-sub{
+    display:block;margin:14px auto 0;
+    background:none;border:none;cursor:pointer;
+    font-family:var(--sans);font-size:11.5px;color:#9AA1B5;
+    text-decoration:underline;text-underline-offset:3px;
+  }
+  .btn-save{
+    margin-top:10px;padding:9px 18px;border-radius:8px;cursor:pointer;
+    border:1px solid var(--blue-soft);background:none;
+    font-family:var(--sans);font-size:12px;color:var(--blue-deep);
+  }
+  #log{font-size:12px;line-height:2;margin-top:14px;min-height:24px;}
+  #log .ok{color:#4E7A5A;}
+  #log .err{color:#B05B5B;}
+  #log .busy{color:var(--blue-deep);}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div class="brand">感謝の一文字</div>
+  <div class="brand-sub">管理ページ</div>
+
+  <div class="panel">
+    <h2>現在の状態</h2>
+    <div class="status-row">
+      <span class="chip unknown" id="chip">確認中…</span>
+      <span class="status-meta" id="meta"></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>アクセストークン</h2>
+    <label for="token">GitHub Fine-grained personal access token</label>
+    <input type="password" id="token" placeholder="github_pat_...">
+    <button class="btn-save" id="save">この端末に保存</button>
+    <p class="note">
+      作成方法: GitHub → Settings → Developer settings → Fine-grained tokens。<br>
+      対象リポジトリはこのリポジトリのみ・権限は Contents: Read and write だけを付与。<br>
+      有効期限は式の翌日までにしておくと安心です。
+    </p>
+  </div>
+
+  <div class="panel">
+    <h2>公開操作</h2>
+    <button class="btn-main" id="publish">公開する</button>
+    <button class="btn-sub" id="unpublish">公開を取り消す（待機画面に戻す）</button>
+    <div id="log"></div>
+    <p class="note">ボタンを押してから全卓のゲスト画面に反映されるまで、最大30秒ほどかかります。<br>反映が確認できると「公開されています」の表示に変わります。</p>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+/* statusUrl（raw URL）から owner/repo/branch/path を割り出す */
+const m = CONFIG.statusUrl.match(/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/);
+if (!m){
+  document.getElementById('log').innerHTML =
+    '<span class="err">config.js の statusUrl が raw.githubusercontent.com のURLではありません。</span>';
+}
+const OWNER = m && m[1], REPO = m && m[2], BRANCH = m && m[3], PATH = m && m[4];
+const API = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${PATH}`;
+
+const $ = id => document.getElementById(id);
+const log = (cls, text) => { $('log').innerHTML = `<span class="${cls}">${text}</span>`; };
+
+/* --- トークン保存 --- */
+$('token').value = localStorage.getItem('gh_token') || '';
+$('save').onclick = () => {
+  localStorage.setItem('gh_token', $('token').value.trim());
+  log('ok', 'トークンをこの端末に保存しました。');
+};
+
+/* --- 現在の状態ポーリング --- */
+let currentOpen = null;
+async function checkStatus(){
+  try{
+    const sep = CONFIG.statusUrl.includes('?') ? '&' : '?';
+    const res = await fetch(CONFIG.statusUrl + sep + 'ts=' + Date.now(), { cache:'no-store' });
+    const j = await res.json();
+    currentOpen = j.open === true;
+    $('chip').className = 'chip ' + (currentOpen ? 'open' : 'closed');
+    $('chip').textContent = currentOpen ? '公開されています' : '非公開（待機画面）';
+    $('meta').textContent = '最終確認 ' + new Date().toLocaleTimeString('ja-JP');
+  }catch(e){
+    $('chip').className = 'chip unknown';
+    $('chip').textContent = '取得できません';
+    $('meta').textContent = 'ネットワークをご確認ください';
+  }
+}
+checkStatus();
+setInterval(checkStatus, 5000);
+
+/* --- 公開フラグの書き換え --- */
+function b64(str){
+  return btoa(String.fromCharCode(...new TextEncoder().encode(str)));
+}
+async function setOpen(open){
+  const token = ($('token').value || '').trim();
+  if (!token){ log('err', 'アクセストークンを入力してください。'); return; }
+  const verb = open ? '公開' : '非公開';
+  if (!confirm(open
+      ? '全17卓のゲスト画面にメッセージを公開します。よろしいですか？'
+      : '公開を取り消して待機画面に戻します。よろしいですか？')) return;
+
+  $('publish').disabled = true; $('unpublish').disabled = true;
+  try{
+    log('busy', verb + 'に切り替えています…');
+    const headers = {
+      'Authorization': 'Bearer ' + token,
+      'Accept': 'application/vnd.github+json',
+    };
+    /* 現在のファイルのshaを取得（初回404なら新規作成） */
+    let sha = null;
+    const get = await fetch(`${API}?ref=${BRANCH}&ts=${Date.now()}`, { headers, cache:'no-store' });
+    if (get.ok){ sha = (await get.json()).sha; }
+    else if (get.status !== 404){ throw new Error('状態の取得に失敗しました (HTTP ' + get.status + ')'); }
+
+    const body = {
+      message: open ? 'ゲスト画面を公開' : '公開を取り消し',
+      content: b64(JSON.stringify({ open, updated_at: new Date().toISOString() }, null, 2) + '\n'),
+      branch: BRANCH,
+    };
+    if (sha) body.sha = sha;
+    const put = await fetch(API, { method:'PUT', headers, body: JSON.stringify(body) });
+    if (!put.ok){
+      const detail = await put.json().catch(() => ({}));
+      throw new Error('書き込みに失敗しました (HTTP ' + put.status + ') ' + (detail.message || '') +
+        (put.status === 401 || put.status === 403 ? ' — トークンの権限（Contents: Read and write）と対象リポジトリをご確認ください。' : ''));
+    }
+
+    /* raw URL に反映されるまで待つ */
+    log('busy', '書き込み完了。ゲスト画面への反映を確認しています…');
+    for (let i = 0; i < 24; i++){
+      await new Promise(r => setTimeout(r, 5000));
+      await checkStatus();
+      if (currentOpen === open){
+        log('ok', open
+          ? '公開されました。ゲスト画面に反映されています。'
+          : '公開を取り消しました。待機画面に戻っています。');
+        break;
+      }
+      if (i === 23) log('err', '書き込みは成功しましたが反映確認がタイムアウトしました。少し待ってからこのページを再読み込みしてください。');
+    }
+  }catch(e){
+    log('err', e.message);
+  }finally{
+    $('publish').disabled = false; $('unpublish').disabled = false;
+  }
+}
+$('publish').onclick = () => setOpen(true);
+$('unpublish').onclick = () => setOpen(false);
+</script>
+</body>
+</html>
