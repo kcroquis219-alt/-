@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#FDFCFB">
+<title>感謝の一文字</title>
+<style>
+  :root{
+    --bg-top:#FDFCFB;
+    --bg-btm:#EBEFF8;
+    --blue:#93A5CF;          /* ドレスのくすみブルー */
+    --blue-soft:#C3CEE6;
+    --blue-deep:#3E4C6D;     /* 藍がかったグレー（本文） */
+    --pink:#C98E9E;          /* ブーケのダスティピンク */
+    --pink-soft:#EFDDE2;
+    --brown:#7A5F4B;         /* テーブルのブラウン */
+    --gold:#C4AE7E;          /* ラメの気配 */
+    --card:#FFFFFF;
+    --serif:"Hiragino Mincho ProN","Yu Mincho","YuMincho","Noto Serif JP",serif;
+    --en:Georgia,"Times New Roman",serif;
+    --sans:"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(420px 300px at 85% -40px, rgba(201,142,158,.14), transparent 70%),
+      radial-gradient(520px 380px at -60px 30%, rgba(147,165,207,.16), transparent 70%),
+      linear-gradient(180deg,var(--bg-top) 0%,var(--bg-btm) 100%);
+    background-attachment:fixed;
+    color:var(--blue-deep);
+    font-family:var(--serif);
+    -webkit-font-smoothing:antialiased;
+  }
+  #app{
+    position:relative;
+    max-width:440px;margin:0 auto;
+    padding:60px 22px 140px;
+    text-align:center;
+  }
+
+  /* ---------- ラメのきらめき ---------- */
+  .sparkle{
+    position:absolute;font-size:11px;color:var(--gold);
+    opacity:.35;pointer-events:none;user-select:none;
+    animation:twinkle 4.6s ease-in-out infinite;
+  }
+  .sparkle.s2{color:var(--blue);}
+  .sparkle.s3{color:var(--pink);}
+  @keyframes twinkle{
+    0%,100%{opacity:.15;transform:scale(.8);}
+    50%{opacity:.75;transform:scale(1.1);}
+  }
+
+  /* ---------- ヘッダー ---------- */
+  .eyebrow{
+    font-family:var(--en);
+    font-size:10px;letter-spacing:.42em;color:var(--brown);
+    margin-bottom:20px;
+  }
+  h1{
+    font-size:27px;font-weight:600;letter-spacing:.26em;
+    text-indent:.26em; /* 字間ぶんのセンター補正 */
+    margin-bottom:12px;
+  }
+  .en-sub{
+    font-family:var(--en);font-style:italic;
+    font-size:12.5px;letter-spacing:.14em;color:var(--blue);
+    margin-bottom:12px;
+  }
+  .ribbon{margin:0 auto 20px;display:block;}
+  .table-label{
+    display:inline-block;
+    font-size:12.5px;letter-spacing:.32em;text-indent:.32em;
+    color:var(--blue-deep);
+    border-top:1px solid var(--blue-soft);
+    border-bottom:1px solid var(--blue-soft);
+    padding:9px 26px;
+    margin-bottom:38px;
+  }
+
+  /* ---------- 解禁前 ---------- */
+  .lock-lead{font-size:14px;line-height:2.3;margin-bottom:36px;}
+  .countdown{display:flex;gap:11px;justify-content:center;margin-bottom:28px;}
+  .cd-unit{
+    background:var(--card);border-radius:16px;
+    border:1px solid rgba(147,165,207,.25);
+    box-shadow:0 2px 6px rgba(147,165,207,.14), 0 12px 26px rgba(147,165,207,.18);
+    padding:15px 0 11px;width:70px;
+  }
+  .cd-num{font-size:27px;font-variant-numeric:tabular-nums;}
+  .cd-label{font-size:9.5px;letter-spacing:.26em;text-indent:.26em;color:var(--pink);margin-top:5px;}
+  .lock-note{font-size:12px;color:var(--blue);letter-spacing:.14em;line-height:2.1;}
+
+  /* ---------- 解禁後 ---------- */
+  .open-lead{font-size:13.5px;line-height:2.3;margin-bottom:32px;}
+  .cards{display:flex;flex-direction:column;gap:15px;text-align:left;}
+  .card{
+    background:var(--card);border-radius:18px;
+    border:1px solid rgba(147,165,207,.26);
+    box-shadow:0 2px 6px rgba(147,165,207,.12), 0 10px 24px rgba(147,165,207,.16);
+    overflow:hidden;
+    transition:box-shadow .5s ease;
+  }
+  .card.open{
+    box-shadow:0 4px 10px rgba(147,165,207,.16), 0 18px 40px rgba(147,165,207,.26);
+  }
+  .card-head{
+    width:100%;display:flex;align-items:center;justify-content:space-between;
+    padding:19px 20px 19px 24px;background:none;border:none;cursor:pointer;
+    font-family:var(--serif);color:var(--blue-deep);
+  }
+  .card-head:focus-visible{outline:2px solid var(--pink);outline-offset:-2px;border-radius:18px;}
+  .member-name{font-size:15.5px;letter-spacing:.2em;}
+  .hint{
+    font-family:var(--sans);
+    font-size:10px;letter-spacing:.24em;text-indent:.24em;color:var(--pink);
+    border:1px solid rgba(201,142,158,.65);border-radius:999px;
+    padding:6px 13px 6px 15px;
+    transition:all .4s ease;white-space:nowrap;
+  }
+  .card.open .hint{
+    color:#fff;background:var(--blue);border-color:var(--blue);
+  }
+  .card-body{
+    max-height:0;overflow:hidden;
+    transition:max-height .65s cubic-bezier(.4,0,.2,1);
+    text-align:center;
+  }
+  .card.open .card-body{max-height:680px;}
+  .card-inner{padding:10px 26px 32px;}
+
+  .k-lead{
+    font-size:11px;letter-spacing:.34em;text-indent:.34em;color:var(--pink);
+    margin-bottom:2px;
+  }
+  .k-stage{position:relative;display:inline-block;padding:6px 30px;}
+  .k-halo{
+    position:absolute;inset:0;margin:auto;
+    width:140px;height:140px;border-radius:50%;
+    background:radial-gradient(circle at 38% 32%, rgba(201,142,158,.30), rgba(147,165,207,.28) 62%, transparent 78%);
+    filter:blur(16px);
+  }
+  .k{
+    position:relative;
+    font-size:108px;line-height:1.3;font-weight:600;
+  }
+  .seal{
+    position:absolute;right:-2px;bottom:22px;
+    width:24px;height:42px;border-radius:5px;
+    background:var(--pink);color:#fff;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-size:11.5px;line-height:1.45;letter-spacing:0;
+    transform:rotate(-4deg);
+    box-shadow:0 2px 6px rgba(201,142,158,.4);
+  }
+  .k-yomi{font-size:11px;letter-spacing:.44em;text-indent:.44em;color:var(--blue);margin:0 0 18px;}
+  .k-msg{
+    font-size:13.5px;line-height:2.2;text-align:left;
+  }
+  /* ひらいた時の所作 */
+  .card.open .k-lead{opacity:0;animation:rise .7s ease .15s forwards;}
+  .card.open .k-halo{opacity:0;animation:bloom 1.6s ease .3s forwards;}
+  .card.open .k{opacity:0;animation:inksoak 1.4s ease .45s forwards;}
+  .card.open .seal{opacity:0;animation:stamp .35s ease-out 1.75s forwards;}
+  .card.open .k-yomi{opacity:0;animation:rise .7s ease 1.95s forwards;}
+  .card.open .k-msg{opacity:0;animation:rise .8s ease 2.25s forwards;}
+
+  .footer{margin-top:48px;}
+  .footer-line{
+    width:56px;height:1px;background:var(--blue-soft);
+    margin:0 auto 18px;position:relative;
+  }
+  .footer-line::after{
+    content:"";position:absolute;left:50%;top:-2.5px;
+    width:6px;height:6px;border-radius:50%;
+    background:var(--pink);transform:translateX(-50%);
+  }
+  .signature{
+    font-size:11.5px;letter-spacing:.22em;
+    color:var(--brown);line-height:2.3;
+  }
+  .merci{
+    font-family:var(--en);font-style:italic;
+    font-size:13px;letter-spacing:.1em;color:var(--blue);
+    margin-top:10px;
+  }
+
+  /* ---------- マリゾンの線画 / 会場写真 ---------- */
+  .chapel{display:block;margin:38px auto 0;}
+  .chapel.small{width:184px;height:auto;margin:0 auto 26px;opacity:.8;}
+  .hero-photo{
+    display:block;
+    width:calc(100% + 44px);
+    margin:-60px -22px 36px;
+    height:200px;object-fit:cover;
+    -webkit-mask-image:linear-gradient(180deg,#000 52%,transparent 100%);
+    mask-image:linear-gradient(180deg,#000 52%,transparent 100%);
+  }
+
+  @keyframes rise{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  @keyframes bloom{from{opacity:0;transform:scale(.6);}to{opacity:1;transform:scale(1);}}
+  @keyframes inksoak{
+    0%{opacity:0;filter:blur(12px);transform:scale(1.06);}
+    60%{opacity:.9;filter:blur(2px);}
+    100%{opacity:1;filter:blur(0);transform:scale(1);}
+  }
+  @keyframes stamp{
+    from{opacity:0;transform:rotate(-4deg) scale(1.9);}
+    to{opacity:1;transform:rotate(-4deg) scale(1);}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .sparkle{animation:none;}
+    .card.open .k-lead,.card.open .k-halo,.card.open .k,
+    .card.open .seal,.card.open .k-yomi,.card.open .k-msg{animation:none;opacity:1;}
+    .card-body{transition:none;}
+  }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script src="config.js"></script>
+<script src="data.js"></script>
+<script>
+/* =====================================================
+   卓の判定・表示制御
+   データは data.js（CSVから生成）、設定は config.js を編集。
+   URL例: https://<ドメイン>/?t=A  〜  ?t=Q
+   テスト用: URLに &preview を付けると解禁前でも中身を確認できる
+   ===================================================== */
+const params  = new URLSearchParams(location.search);
+const tableId = (params.get('t') || '').trim().toUpperCase();
+const PREVIEW = params.has('preview');
+
+const MEMBERS   = (typeof TABLES !== 'undefined' && TABLES[tableId]) || null;
+const OVERRIDE  = (CONFIG.tableOverrides || {})[tableId] || {};
+const UNLOCK_AT = new Date(OVERRIDE.unlockTime || CONFIG.unlockTime);
+const UNLOCK_LABEL = OVERRIDE.unlockLabel || CONFIG.unlockLabel;
+const TABLE_LABEL  = OVERRIDE.label || (tableId + ' テーブルのみなさまへ');
+
+if (MEMBERS) document.title = '感謝の一文字 | ' + tableId + ' Table';
+
+/* --- サーバー時刻との差分（端末時計の操作対策・失敗時は0のまま） --- */
+let clockOffset = 0;
+if (CONFIG.useServerTime && location.protocol.startsWith('http')) {
+  fetch(location.href, { method: 'HEAD', cache: 'no-store' })
+    .then(res => {
+      const d = res.headers.get('date');
+      if (d) clockOffset = new Date(d).getTime() + 500 - Date.now();
+    })
+    .catch(() => {});
+}
+const now = () => Date.now() + clockOffset;
+
+const esc = s => String(s).replace(/[&<>"]/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const app = document.getElementById('app');
+let lastView = '';
+
+const SPARKLES = `
+  <span class="sparkle"    style="top:34px;left:10%;animation-delay:0s;">✦</span>
+  <span class="sparkle s2" style="top:96px;right:7%;animation-delay:1.2s;">✦</span>
+  <span class="sparkle s3" style="top:190px;left:5%;animation-delay:2.1s;font-size:9px;">✦</span>
+  <span class="sparkle"    style="top:250px;right:12%;animation-delay:3s;font-size:9px;">✦</span>
+  <span class="sparkle s2" style="top:20px;right:24%;animation-delay:1.8s;font-size:8px;">✦</span>
+  <span class="sparkle s3" style="top:150px;left:20%;animation-delay:.6s;font-size:8px;">✦</span>`;
+
+const CHAPEL = (cls='') => `
+<svg class="chapel ${cls}" viewBox="0 0 320 122" width="252" aria-hidden="true">
+  <g fill="none" stroke="#93A5CF" stroke-width="1.4" stroke-linecap="round">
+    <line x1="24" y1="96" x2="296" y2="96" stroke-width="1" opacity=".7"/>
+    <path d="M44 104 q7 -4 14 0 M66 108 q7 -4 14 0 M240 104 q7 -4 14 0 M262 108 q7 -4 14 0" opacity=".55" stroke-width="1.2"/>
+    <path d="M136 96 V64 M184 96 V64"/>
+    <path d="M132 64 L160 44 L188 64"/>
+    <path d="M160 44 V22"/>
+    <path d="M153.5 28 h13" stroke="#C98E9E"/>
+    <path d="M153 96 V82 a7 7 0 0 1 14 0 V96"/>
+    <path d="M136 76 h-18 v20 M184 76 h18 v20"/>
+    <path d="M74 38 q4 -4 8 0 q4 -4 8 0 M242 30 q3 -3 6 0 q3 -3 6 0" opacity=".7" stroke-width="1.2"/>
+  </g>
+  <circle cx="250" cy="58" r="6" fill="#EFDDE2"/>
+</svg>`;
+
+const RIBBON = `
+<svg class="ribbon" width="76" height="32" viewBox="0 0 76 32" aria-hidden="true">
+  <path d="M38 15 C28 3, 9 4, 7 13 C5 22, 26 23, 38 15" fill="none" stroke="#93A5CF" stroke-width="1.6"/>
+  <path d="M38 15 C48 3, 67 4, 69 13 C71 22, 50 23, 38 15" fill="none" stroke="#93A5CF" stroke-width="1.6"/>
+  <path d="M38 15 L31 29 M38 15 L45 29" stroke="#93A5CF" stroke-width="1.4" fill="none"/>
+  <circle cx="38" cy="15" r="2.8" fill="#C98E9E"/>
+</svg>`;
+
+const HEADER = SPARKLES
+  + (CONFIG.heroPhoto ? `<img class="hero-photo" src="${CONFIG.heroPhoto}" alt="マリゾン福岡">` : '')
+  + `
+  <div class="eyebrow">MARIZON FUKUOKA &mdash; 2026.08.01</div>
+  <h1>感謝の一文字</h1>
+  <div class="en-sub">&mdash; with gratitude, for you &mdash;</div>
+  ${RIBBON}`
+  + (MEMBERS ? `<div class="table-label">${esc(TABLE_LABEL)}</div>` : '');
+
+function isUnlocked(){
+  return PREVIEW || now() >= UNLOCK_AT.getTime();
+}
+function pad(n){ return String(n).padStart(2,'0'); }
+
+function render(){
+  /* 卓が未指定・不明な場合 */
+  if (!MEMBERS){
+    if (lastView !== 'notfound'){
+      lastView = 'notfound';
+      app.innerHTML = HEADER + `
+        <p class="lock-lead">テーブルが見つかりませんでした。<br>お手数ですが、お席のQRコードを<br>もう一度お読み取りください。</p>
+        ${CHAPEL()}`;
+    }
+    return;
+  }
+
+  if (!isUnlocked()){
+    if (lastView !== 'locked'){
+      lastView = 'locked';
+      app.innerHTML = HEADER + `
+        <p class="lock-lead">おふたりから みなさまへ。<br>日ごろの感謝を、一文字にしたためました。<br>時が来たら、そっとひらきます。</p>
+        <div class="countdown">
+          <div class="cd-unit"><div class="cd-num" id="cd-d">--</div><div class="cd-label">日</div></div>
+          <div class="cd-unit"><div class="cd-num" id="cd-h">--</div><div class="cd-label">時間</div></div>
+          <div class="cd-unit"><div class="cd-num" id="cd-m">--</div><div class="cd-label">分</div></div>
+          <div class="cd-unit"><div class="cd-num" id="cd-s">--</div><div class="cd-label">秒</div></div>
+        </div>
+        <p class="lock-note">${esc(UNLOCK_LABEL)} に開きます<br>そのときまで、どうぞお楽しみに</p>
+        ${CHAPEL()}`;
+    }
+    const diff = Math.max(0, UNLOCK_AT.getTime() - now());
+    const s = Math.floor(diff/1000);
+    document.getElementById('cd-d').textContent = pad(Math.floor(s/86400));
+    document.getElementById('cd-h').textContent = pad(Math.floor(s%86400/3600));
+    document.getElementById('cd-m').textContent = pad(Math.floor(s%3600/60));
+    document.getElementById('cd-s').textContent = pad(s%60);
+    return;
+  }
+
+  if (lastView !== 'unlocked'){
+    lastView = 'unlocked';
+    const cards = MEMBERS.length
+      ? `<div class="cards">
+          ${MEMBERS.map((m,i)=>`
+            <div class="card" id="card-${i}">
+              <button class="card-head" onclick="toggleCard(${i})" aria-expanded="false">
+                <span class="member-name">${esc(m.name)} さま</span>
+                <span class="hint">ひらく</span>
+              </button>
+              <div class="card-body">
+                <div class="card-inner">
+                  <div class="k-lead">あなたへの感謝の一文字</div>
+                  <div class="k-stage">
+                    <div class="k-halo"></div>
+                    <div class="k">${esc(m.kanji)}</div>
+                    <div class="seal"><span>感</span><span>謝</span></div>
+                  </div>
+                  <div class="k-yomi">${esc(m.yomi)}</div>
+                  <p class="k-msg">${esc(m.msg).replace(/\n/g,'<br>')}</p>
+                </div>
+              </div>
+            </div>`).join('')}
+        </div>`
+      : `<p class="lock-note">この卓のメッセージは、ただいま準備中です。</p>`;
+    app.innerHTML = HEADER + `
+      <p class="open-lead">ご自身のお名前をタップしてください。<br>おふたりからの、感謝の一文字が現れます。<br>おとなりの方と見せ合うのも、ぜひ。</p>
+      ${cards}
+      <div class="footer">
+        ${CHAPEL('small')}
+        <div class="footer-line"></div>
+        <div class="signature">${CONFIG.signature}</div>
+        <div class="merci">merci beaucoup</div>
+      </div>`;
+  }
+}
+
+function toggleCard(i){
+  const card = document.getElementById('card-'+i);
+  const open = card.classList.toggle('open');
+  card.querySelector('.card-head').setAttribute('aria-expanded', open);
+  card.querySelector('.hint').textContent = open ? 'とじる' : 'ひらく';
+}
+window.toggleCard = toggleCard;
+
+render();
+setInterval(render, 500);
+</script>
+</body>
+</html>
