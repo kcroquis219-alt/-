@@ -9,6 +9,46 @@
 window_days: 3
 
 # ---------------------------------------------------------------
+# 論文の掲載設定
+# 収集した国内外の論文をトレンドとの関連度でスコアリングし、
+# 上位 limit 件だけをレポートに掲載する。
+# ---------------------------------------------------------------
+papers:
+  limit: 3
+
+# ---------------------------------------------------------------
+# トレンド判定の設定
+# 前日(収集期間内)の新聞・業界誌記事のタイトル・本文抜粋から
+# 下記キーワードの出現記事数を集計し、上位 top_n をその日の
+# トレンドとしてレポート冒頭に表示する。論文選定にも使われる。
+# ラベル(左)は表示名、右のリストは表記ゆれ(英語含む)。
+# ---------------------------------------------------------------
+trends:
+  top_n: 5
+  keywords:
+    賃上げ: [賃上げ, 春闘, ベースアップ, 賃金引上げ, wage increase, pay raise]
+    最低賃金: [最低賃金, minimum wage]
+    人手不足: [人手不足, 採用難, 人材不足, 人材確保, labor shortage]
+    人的資本: [人的資本, human capital]
+    ジョブ型雇用: [ジョブ型, job-based, job型]
+    リスキリング: [リスキリング, 学び直し, リカレント, reskilling, upskilling]
+    タレントマネジメント: [タレントマネジメント, タレントマネージメント, talent management]
+    採用: [採用, 求人, 内定, 就活, hiring, recruitment, recruiting]
+    人事評価: [人事評価, 評価制度, 実力本位, performance appraisal, performance management]
+    離職・定着: [離職, 退職, 定着, 退職代行, turnover, retention, attrition]
+    エンゲージメント: [エンゲージメント, 従業員満足, engagement, job satisfaction]
+    ウェルビーイング: [ウェルビーイング, 健康経営, well-being, wellbeing, メンタルヘルス]
+    リモートワーク: [リモートワーク, テレワーク, 在宅勤務, 出社回帰, remote work, hybrid work]
+    生成AIと人事: [生成ai, ai活用, ai人材, chatgpt, 人工知能, artificial intelligence]
+    育児・介護との両立: [育休, 育児休業, 介護離職, 両立支援, childcare, parental leave]
+    女性活躍: [女性活躍, 女性管理職, ジェンダー, gender]
+    副業・兼業: [副業, 兼業, side job, moonlighting]
+    高齢者雇用: [高齢者雇用, シニア雇用, 定年, 再雇用, older worker]
+    外国人労働者: [外国人労働者, 外国人材, 特定技能, 技能実習, migrant worker, foreign worker]
+    働き方改革: [働き方改革, 労働時間, 残業, 週休3日, working hours, four-day]
+    人事異動・人事制度: [人事制度, 人事異動, 人事戦略, 人材戦略]
+
+# ---------------------------------------------------------------
 # AI要約の設定
 # GitHub Actions内蔵の GitHub Models(無料・追加設定不要)を使い、
 # 各記事の抄録・本文抜粋から日本語1〜2文の要約を生成する。
@@ -57,9 +97,10 @@ jstage:
     - 働き方
 
 # ---------------------------------------------------------------
-# RSSフィード(公的機関・研究機関・新聞報道)
-# - category: public → レポートの「公的機関・研究機関」欄に表示
-# - category: news   → レポートの「新聞・報道」欄に表示
+# RSSフィード(公的機関・研究機関・新聞報道・業界誌)
+# - category: public   → レポートの「公的機関・研究機関」欄に表示
+# - category: news     → レポートの「新聞」欄に表示
+# - category: industry → レポートの「業界誌」欄に表示
 # - keywords が空の場合は全件対象(検索URL自体で絞られている場合など)。
 #   keywords がある場合はタイトルにいずれかを含むものだけ収集。
 # - params はURLのクエリパラメータ(日本語もそのまま書ける)
@@ -113,3 +154,16 @@ feeds:
     category: news
     url: https://www3.nhk.or.jp/rss/news/cat5.xml
     keywords: [雇用, 賃金, 賃上げ, 人事, 採用, 労働, 働き方, 人手不足, 求人, 春闘]
+
+  # ---- 業界誌(HR専門メディア) ----
+  # 注: 日本の人事部・リクルートワークス研究所・労務行政はRSS配信がないため
+  # 収集元に含められません(記事はGoogle News経由で拾われることがあります)。
+  - name: HR NOTE(業界誌)
+    category: industry
+    url: https://hrnote.jp/feed/
+    keywords: []
+
+  - name: HRzine(業界誌)
+    category: industry
+    url: https://hrzine.jp/rss/new/index.xml
+    keywords: []

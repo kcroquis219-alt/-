@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""人事(HR)関連の最新研究・公的調査データを収集し、Markdownレポートを生成する。
+"""人事(HR)関連の最新研究・記事を収集し、Markdownレポートを生成する。
 
-収集元(査読論文DB・公的機関・新聞報道に限定):
+流れ:
+  1. 新聞・業界誌の新着記事からトレンドキーワードを集計(本日のトレンド)
+  2. 国内外の論文(OpenAlex・J-STAGE)をトレンドとの関連度でスコアリングし
+     上位数件(既定3件)だけを「注目論文」として掲載
+  3. 各記事に日本語のAI要約を付与
+
+収集元(論文DB・業界誌・新聞・公的機関に限定):
   - OpenAlex   : 海外の査読付き学術論文
   - J-STAGE    : 国内の学術論文
-  - RSSフィード : 厚生労働省・JILPT・RIETI・NBER などの公的機関/研究機関、
-                 および新聞報道(Google News検索・NHK)
+  - RSSフィード : 新聞報道(Google News検索・NHK)、業界誌(HR NOTE・HRzine)、
+                 公的機関(厚生労働省・RIETI・NBER)
 
 使い方:
   python scripts/collect_hr_research.py [--config config/sources.yml] [--out reports/]
@@ -107,6 +113,7 @@ def collect_openalex(cfg, since):
                     "date": work.get("publication_date") or "",
                     "venue": src,
                     "authors": ", ".join(a for a in authors if a),
+                    "kind": "openalex",
                     "summary": "",
                     "summary_source": truncate(
                         reconstruct_abstract(work.get("abstract_inverted_index")),
@@ -197,6 +204,7 @@ def collect_jstage(cfg, since):
                     "venue": fields.get("material_title")
                              or fields.get("journal_title") or "J-STAGE",
                     "authors": fields.get("author", ""),
+                    "kind": "jstage",
                     "summary": "",
                     "query": query,
                 })
@@ -290,6 +298,53 @@ def collect_feeds(cfg, since):
             errors.append(f"{name}: {exc}")
             grouped[name] = {"category": category, "items": None}  # 取得失敗
     return grouped, errors
+
+
+# ----------------------------------------------------------------------
+# トレンド抽出と論文選定
+# ----------------------------------------------------------------------
+
+def item_text(item):
+    return (item.get("title", "") + " " + item.get("summary_source", "")).lower()
+
+
+def match_keywords(item, keywords):
+    """アイテムにマッチするトレンドラベルのリストを返す。"""
+    text = item_text(item)
+    return [label for label, variants in keywords.items()
+            if any(str(v).lower() in text for v in variants)]
+
+
+def extract_trends(articles, cfg):
+    """新聞・業界誌記事からトレンドキーワードを集計し [(ラベル, 記事数)] を返す。"""
+    tr = cfg.get("trends") or {}
+    keywords = tr.get("keywords") or {}
+    counts = {}
+    for article in articles:
+        for label in match_keywords(article, keywords):
+            counts[label] = counts.get(label, 0) + 1
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    return ranked[: int(tr.get("top_n", 5))]
+
+
+def select_papers(papers, trends, cfg):
+    """トレンドとの関連度で論文をスコアリングし、上位 limit 件を返す。
+
+    スコア = トレンド上位ほど大きい重み × マッチ数。トレンド外でも
+    辞書内キーワードとの一致は小さく加点。同点は発行日の新しい順。
+    """
+    limit = int((cfg.get("papers") or {}).get("limit", 3))
+    keywords = (cfg.get("trends") or {}).get("keywords") or {}
+    trend_weight = {label: len(trends) - i for i, (label, _) in enumerate(trends)}
+    scored = []
+    for paper in papers:
+        matched = match_keywords(paper, keywords)
+        score = sum(trend_weight.get(label, 0) * 10 + 1 for label in matched)
+        paper["trend_labels"] = [l for l in matched if l in trend_weight]
+        scored.append((score, paper))
+    scored.sort(key=lambda sp: sp[1].get("date", ""), reverse=True)
+    scored.sort(key=lambda sp: sp[0], reverse=True)
+    return [paper for _, paper in scored[:limit]]
 
 
 # ----------------------------------------------------------------------
@@ -388,6 +443,16 @@ def load_seen(path):
     return {}
 
 
+def drop_seen(items, seen):
+    """既出アイテムを除外する(seenへの記録はしない)。"""
+    return [item for item in items if item["id"] not in seen]
+
+
+def mark_seen(items, seen, today):
+    for item in items:
+        seen[item["id"]] = today.isoformat()
+
+
 def filter_new(items, seen, today):
     fresh = []
     for item in items:
@@ -454,47 +519,55 @@ def count_feed_items(feed_groups):
                if g["items"] is not None)
 
 
-def render_report(today, since, openalex_items, jstage_items, feed_groups, errors):
-    total = (len(openalex_items) + len(jstage_items)
-             + count_feed_items(feed_groups))
+def render_report(today, since, trends, papers, feed_groups, errors):
+    total = len(papers) + count_feed_items(feed_groups)
     lines = [
         f"# 人事研究デイリーレポート {today.isoformat()}",
         "",
         f"収集期間: {since.isoformat()} 〜 {today.isoformat()} / "
         f"新着 **{total} 件**",
         "",
-        "収集元は査読論文データベース(OpenAlex・J-STAGE)、"
-        "公的機関・研究機関、および新聞報道に限定しています。",
+        "収集元は国内外の学術論文(OpenAlex・J-STAGE)、業界誌、新聞、"
+        "公的機関に限定しています。",
         "",
     ]
 
-    lines.append(f"## 🌍 海外の学術論文({len(openalex_items)}件)")
+    lines.append("## 🔥 本日のトレンド")
     lines.append("")
-    if openalex_items:
-        for item in openalex_items:
+    if trends:
+        lines.append("直近の新聞・業界誌記事で取り上げられたキーワードの集計です。")
+        lines.append("")
+        for rank, (label, count) in enumerate(trends, 1):
+            lines.append(f"{rank}. **{label}**({count}記事)")
+    else:
+        lines.append("トレンドを判定できる記事がありませんでした。")
+    lines.append("")
+
+    lines.append(f"## 📄 注目論文({len(papers)}件)")
+    lines.append("")
+    lines.append("収集した国内外の論文から、トレンドとの関連度が高い順に選定しています。")
+    lines.append("")
+    if papers:
+        for item in papers:
             lines.append(render_item(item))
+            if item.get("trend_labels"):
+                lines.append(f"- 関連トレンド: {'、'.join(item['trend_labels'])}")
             lines.append("")
     else:
-        lines.append("新着はありませんでした。")
+        lines.append("新着論文はありませんでした。")
         lines.append("")
 
-    lines.append(f"## 🇯🇵 国内の学術論文 - J-STAGE({len(jstage_items)}件)")
-    lines.append("")
-    if jstage_items:
-        for item in jstage_items:
-            lines.append(render_item(item))
-            lines.append("")
-    else:
-        lines.append("新着はありませんでした。")
-        lines.append("")
-
-    lines.append("## 🏛 公的機関・研究機関の新着")
-    lines.append("")
-    render_feed_sections(lines, feed_groups, "public")
-
-    lines.append("## 📰 新聞・報道")
+    lines.append("## 📰 新聞")
     lines.append("")
     render_feed_sections(lines, feed_groups, "news")
+
+    lines.append("## 📚 業界誌")
+    lines.append("")
+    render_feed_sections(lines, feed_groups, "industry")
+
+    lines.append("## 🏛 公的機関・研究機関")
+    lines.append("")
+    render_feed_sections(lines, feed_groups, "public")
 
     if errors:
         lines.append("## ⚠️ 収集エラー")
@@ -533,21 +606,35 @@ def main():
     feed_groups, errs = collect_feeds(cfg, since)
     all_errors += errs
 
-    openalex_items = filter_new(openalex_items, seen, today)
-    jstage_items = filter_new(jstage_items, seen, today)
+    # 論文は「既出でないもの」を候補にし、掲載に選ばれたものだけ既出扱いにする
+    # (選ばれなかった論文は翌日以降トレンドが変われば選ばれ得る)
+    candidates = drop_seen(openalex_items, seen) + drop_seen(jstage_items, seen)
+    # 複数の検索クエリに同じ論文がヒットするためIDで重複除去
+    unique = {}
+    for paper in candidates:
+        unique.setdefault(paper["id"], paper)
+    candidates = list(unique.values())
     for group in feed_groups.values():
         if group["items"] is not None:
             group["items"] = filter_new(group["items"], seen, today)
 
-    # 新着として残ったものだけ抄録取得とAI要約を行う
-    enrich_jstage_abstracts(jstage_items)
-    all_items = openalex_items + jstage_items
+    # トレンド抽出(新聞・業界誌の新着記事から)→ 論文をトレンド連動で選定
+    articles = [item for group in feed_groups.values()
+                if group["category"] in ("news", "industry") and group["items"]
+                for item in group["items"]]
+    trends = extract_trends(articles, cfg)
+    papers = select_papers(candidates, trends, cfg)
+    mark_seen(papers, seen, today)
+
+    # 掲載が決まったものだけ抄録取得とAI要約を行う
+    enrich_jstage_abstracts([p for p in papers if p.get("kind") == "jstage"])
+    all_items = list(papers)
     for group in feed_groups.values():
         if group["items"]:
             all_items += group["items"]
     all_errors += summarize_items(all_items, cfg)
 
-    report = render_report(today, since, openalex_items, jstage_items,
+    report = render_report(today, since, trends, papers,
                            feed_groups, all_errors)
 
     out_dir = Path(args.out)
@@ -561,8 +648,7 @@ def main():
         encoding="utf-8",
     )
 
-    total = (len(openalex_items) + len(jstage_items)
-             + count_feed_items(feed_groups))
+    total = len(papers) + count_feed_items(feed_groups)
     print(f"report={report_path}")
     print(f"new_items={total}")
 
