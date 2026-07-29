@@ -1,9 +1,10 @@
 # このリポジトリについて
 
-このリポジトリには2つの独立したプロジェクトが同居しています。
+このリポジトリには3つの独立したプロジェクトが同居しています。
 
 1. **感謝の一文字 — 結婚式Web演出**(`index.html`, `config.js`, `data/` ほか)
 2. **人事研究 自動収集システム**(`config/sources.yml`, `scripts/collect_hr_research.py`, `reports/` ほか)
+3. **対話AI「ハヤト」設定**(`ai-companion/README.md`) — Claudeアプリで使うキャラクター設定と手順書
 
 ---
 
