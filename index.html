@@ -93,6 +93,45 @@
   .cd-label{font-size:9.5px;letter-spacing:.26em;text-indent:.26em;color:var(--pink);margin-top:5px;}
   .lock-note{font-size:12px;color:var(--blue);letter-spacing:.14em;line-height:2.1;}
 
+  /* ---------- 待機画面（ボタン解禁方式） ---------- */
+  .wait-stage{position:relative;display:inline-block;padding:26px 48px;margin:2px 0 20px;}
+  .wait-halo{
+    position:absolute;inset:0;margin:auto;
+    width:172px;height:172px;border-radius:50%;
+    background:radial-gradient(circle at 38% 32%, rgba(201,142,158,.30), rgba(147,165,207,.28) 62%, transparent 78%);
+    filter:blur(18px);
+    animation:breathe 5.5s ease-in-out infinite;
+  }
+  .wait-seal{
+    position:relative;
+    width:36px;height:64px;border-radius:6px;
+    background:var(--pink);color:#fff;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-size:16.5px;line-height:1.5;letter-spacing:0;
+    transform:rotate(-4deg);
+    box-shadow:0 3px 10px rgba(201,142,158,.4);
+    animation:floaty 5.5s ease-in-out infinite;
+  }
+  .wait-dots{display:flex;gap:8px;justify-content:center;margin:0 0 26px;}
+  .wait-dots span{
+    width:5px;height:5px;border-radius:50%;background:var(--pink);
+    opacity:.25;animation:dotpulse 1.9s ease-in-out infinite;
+  }
+  .wait-dots span:nth-child(2){animation-delay:.3s;}
+  .wait-dots span:nth-child(3){animation-delay:.6s;}
+  @keyframes breathe{
+    0%,100%{transform:scale(.94);opacity:.65;}
+    50%{transform:scale(1.06);opacity:1;}
+  }
+  @keyframes floaty{
+    0%,100%{transform:rotate(-4deg) translateY(0);}
+    50%{transform:rotate(-4deg) translateY(-5px);}
+  }
+  @keyframes dotpulse{
+    0%,100%{opacity:.2;transform:scale(.9);}
+    50%{opacity:.85;transform:scale(1.2);}
+  }
+
   /* ---------- 解禁後 ---------- */
   .open-lead{font-size:13.5px;line-height:2.3;margin-bottom:32px;}
   .cards{display:flex;flex-direction:column;gap:15px;text-align:left;}
@@ -215,6 +254,7 @@
     .card.open .k-lead,.card.open .k-halo,.card.open .k,
     .card.open .seal,.card.open .k-yomi,.card.open .k-msg{animation:none;opacity:1;}
     .card-body{transition:none;}
+    .wait-halo,.wait-seal,.wait-dots span{animation:none;opacity:1;}
   }
 </style>
 </head>
@@ -254,6 +294,30 @@ if (CONFIG.useServerTime && location.protocol.startsWith('http')) {
     .catch(() => {});
 }
 const now = () => Date.now() + clockOffset;
+
+/* --- ボタン解禁方式: status.json をポーリング --- */
+let remoteOpen = false;
+let statusTimer = null;
+function pollStatus(){
+  const sep = CONFIG.statusUrl.includes('?') ? '&' : '?';
+  fetch(CONFIG.statusUrl + sep + 'ts=' + Date.now(), { cache: 'no-store' })
+    .then(res => res.json())
+    .then(j => {
+      if (j && j.open === true){
+        remoteOpen = true;
+        if (statusTimer){ clearInterval(statusTimer); statusTimer = null; }
+        render();
+      }
+    })
+    .catch(() => {});
+}
+if (CONFIG.unlockMode === 'button' && MEMBERS){
+  pollStatus();
+  statusTimer = setInterval(pollStatus, 5000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && !remoteOpen) pollStatus();
+  });
+}
 
 const esc = s => String(s).replace(/[&<>"]/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -303,7 +367,13 @@ const HEADER = SPARKLES
   + (MEMBERS ? `<div class="table-label">${esc(TABLE_LABEL)}</div>` : '');
 
 function isUnlocked(){
-  return PREVIEW || now() >= UNLOCK_AT.getTime();
+  if (PREVIEW) return true;
+  if (CONFIG.unlockMode === 'button'){
+    if (remoteOpen) return true;
+    if (CONFIG.failsafeTime && now() >= new Date(CONFIG.failsafeTime).getTime()) return true;
+    return false;
+  }
+  return now() >= UNLOCK_AT.getTime();
 }
 function pad(n){ return String(n).padStart(2,'0'); }
 
@@ -320,6 +390,22 @@ function render(){
   }
 
   if (!isUnlocked()){
+    /* ボタン解禁方式: カウントダウンなしの待機画面 */
+    if (CONFIG.unlockMode === 'button'){
+      if (lastView !== 'waiting'){
+        lastView = 'waiting';
+        app.innerHTML = HEADER + `
+          <p class="lock-lead">おふたりから みなさまへ。<br>日ごろの感謝を、一文字にしたためました。</p>
+          <div class="wait-stage">
+            <div class="wait-halo"></div>
+            <div class="wait-seal"><span>感</span><span>謝</span></div>
+          </div>
+          <div class="wait-dots"><span></span><span></span><span></span></div>
+          <p class="lock-note">まもなく、そっとひらきます<br>そのときまで、どうぞお楽しみに</p>
+          ${CHAPEL()}`;
+      }
+      return;
+    }
     if (lastView !== 'locked'){
       lastView = 'locked';
       app.innerHTML = HEADER + `
