@@ -60,3 +60,13 @@ jobs:
           gh issue create --title "$TITLE" --body-file /tmp/issue_body.md \
             --label "daily-report" || \
           gh issue create --title "$TITLE" --body-file /tmp/issue_body.md
+
+      - name: レポートをメールで送信(Gmailシークレット設定時のみ)
+        if: steps.collect.outputs.new_items != '0'
+        continue-on-error: true  # メール失敗でもレポート生成・Issue投稿は成立させる
+        env:
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+          REPORT_PATH: ${{ steps.collect.outputs.report_path }}
+        run: python scripts/send_mail.py

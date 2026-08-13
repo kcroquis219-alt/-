@@ -161,6 +161,23 @@ python3 scripts/make_qr.py https://<ユーザー名>.github.io/<リポジトリ�
 - **Issues タブ**: 毎朝「📊 人事研究デイリーレポート」というIssueが作成されます。
   リポジトリを Watch(All Activity)しておけばメールでも届きます。
 - **reports/ フォルダ**: 過去のレポートがすべて日付ごとに保存されています。
+- **メール直接送信(任意)**: 下記を設定すると、毎朝Gmail経由で
+  レポート全文がメール送信されます。
+
+### メール送信の設定手順(1回だけ・5分程度)
+
+1. Googleアカウントで **2段階認証を有効化** した上で、
+   <https://myaccount.google.com/apppasswords> から
+   **アプリパスワード**(16文字)を発行する
+2. このリポジトリの **Settings → Secrets and variables → Actions →
+   New repository secret** で以下の2つを登録する
+   - `GMAIL_ADDRESS` : 送信に使うGmailアドレス
+   - `GMAIL_APP_PASSWORD` : 1.で発行した16文字のアプリパスワード
+3. 宛先を送信元と変えたい場合のみ `MAIL_TO` も登録(省略時は自分宛て)
+
+シークレットが未設定の間はメール送信は自動でスキップされ、
+Issue投稿とreports/への保存は通常どおり行われます。
+※ アプリパスワードは必ずSecretsに保存してください(コードに直接書かない)。
 
 > 📧 メールで受け取りたい場合は、このリポジトリを Watch(All Activity)に設定してください。Issueが作成されるたびに通知が届きます。
 
